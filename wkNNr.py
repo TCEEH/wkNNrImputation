@@ -11,11 +11,6 @@ import csv
 import time
 
 
-# import matplotlib.pyplot as plt
-# from sklearn.metrics import mean_squared_error
-# from tqdm.auto import tqdm
-
-
 '''The main function available in the following code is 'impute_wkNNr_parallel'.
 The function recieves the following arguments:
 corr = the correlation matrix, as calculated from the unimputed dataset. 
@@ -24,6 +19,9 @@ batch_size = imputation is performed in batches, batch_size stands for the numbe
 k_range = k parameter of the kNN algorithm. A numpy array of size 1 or larger, in case several imputations by different k values are desired. 
 chunk_size = the size of a work unit in a parallel computation. A low chunk_size requires more memory but will less likely to create a buttleneck. 
 njobs = number of jobs to run in parallel. None (defualt) means use all computer cores.
+
+The function returns:
+imputed - a 3D matrix. axis 0 = the index of the k parameter in k_range, axis 1 = rows of imputed matrix and axis 2 = columns of imputed matrix. 
 
 '''
 
@@ -41,13 +39,15 @@ def impute_wkNNr_parallel(corr, missing_data, batch_size, k_range, corr_thr=0, p
                     imputed[k_idx, rinds, cind] = total_values[:, k_idx]
     return imputed
 
-'''impute_wkNNr_parallel when run with an enlarged dataset which includes the lag and leads.
-a = the first column of the desired columns to impute
-b = the last column of the desired columns to impute'''
+'''impute_wkNNr_parallel if run with an enlarged dataset which includes the lag and leads.
+c_start = the first column of the desired columns to impute
+c_end = the last column of the desired columns to impute
+* the correlation matrix required as input is the correlation matrix calculated on the enlarged dataset. 
+'''
 
-def impute_wkNNr_parallel_with_add(corr, missing_data, batch_size, k_range, corr_thr, a, b, parallel=True, chunk_size=1, njobs=None):
+def impute_wkNNr_parallel_with_add(corr, missing_data, batch_size, k_range, corr_thr, c_start, c_end, parallel=True, chunk_size=1, njobs=None):
     imputed = np.repeat(np.asarray(missing_data)[None], k_range.shape[0], axis=0)
-    args = ((missing_data, corr, i, batch_size, k_range, corr_thr) for i in range(a,b))
+    args = ((missing_data, corr, i, batch_size, k_range, corr_thr) for i in range(c_start, c_end))
     if parallel: 
         with Pool(njobs) as p:
             for rinds, cind, total_values in p.imap_unordered(impute_column, args, chunk_size):
@@ -125,6 +125,11 @@ def get_values_for_weights(total_values, weights, cind, k_range, present_rows, b
 
 
         
+        
+        
+        
+        
+        
 '''Generate dummy data to test imputation functions'''
 
 def get_column(length, frequency, offset, noise_level):
@@ -161,6 +166,12 @@ def get_missing_dummy_data(data):
         
         
         
+        
+        
+        
+        
+        
+        
 
 def main():
     data = get_dummy_data(4000)
@@ -178,34 +189,39 @@ def main():
     batch_size = 200
 
     st = time.time()
-    imputed = impute_wkNNr_parallel(corr, missing_data, batch_size, k_range, corr_thr=c_thr)
+    imputed = impute_wkNNr_parallel(corr, missing_data, batch_size, k_range, c_thr)
     print(f'Parallel imputation took: {time.time() - st}')
     print(f'Are there any NaN values left? {np.isnan(imputed).any()}')
 
     st = time.time()
-    imputed = impute_wkNNr_parallel(corr, missing_data, batch_size, k_range, corr_thr=c_thr, parallel=False)
+    imputed = impute_wkNNr_parallel(corr, missing_data, batch_size, k_range, c_thr, parallel=False)
     print(f'Not parallel imputation took: {time.time() - st}')
     print(f'Are there any Nan values left? {np.isnan(imputed).any()}')
 
     inds = np.isnan(missing_data)
     for k_idx, k_neigh in enumerate(k_range):        
-        print('RMSE for {} neighbors is: {}'.format(k_neigh, np.sqrt(mean_squared_error(imputed[k_idx,:,:][inds], data[inds]))))
-
+        print('RMSE ({} neighbors): {}'.format(k_neigh, np.sqrt(mean_squared_error(imputed[k_idx,:,:][inds], data[inds]))))
+        
+    # Adding first lag and lead
+    shiftM1 = pd.DataFrame(missing_data).shift(periods=-1)
+    shiftP1 = pd.DataFrame(missing_data).shift(periods=1)
+    missing_data_add1 = pd.concat([shiftM1, pd.DataFrame(missing_data), shiftP1], axis=1)   
+    corr = missing_data_add1.corr(method=corr_method).fillna(0).values
+    
+    print(f'Shape of missing data matrix with lag(1) lead(1): {missing_data_add1.shape}')
+    
+    c_start = missing_data.shape[1]
+    c_end = 2 * (missing_data.shape[1])
+    
+    st = time.time()
+    imputed = impute_wkNNr_parallel_with_add(corr, missing_data_add1.values, batch_size, k_range, c_thr, c_start, c_end)
+    print(f'Parallel imputation with with lag(1) lead(1) took: {time.time() - st}')
+    print(f'Are there any NaN values left? {np.isnan(imputed[:,:,c_start:c_end]).any()}')
+    
+    inds = np.isnan(missing_data)
+    for k_idx, k_neigh in enumerate(k_range):        
+        print('RMSE ({} neighbors, lag(1) lead(1)): {}'.format(k_neigh, np.sqrt(mean_squared_error(imputed[k_idx,:,c_start:c_end][inds], data[inds]))))
+    
+   
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
