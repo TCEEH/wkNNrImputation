@@ -190,13 +190,13 @@ def main():
 
     st = time.time()
     imputed = impute_wkNNr_parallel(corr, missing_data, batch_size, k_range, c_thr)
-    print(f'Parallel imputation took: {time.time() - st}')
+    print(f'\nParallel imputation took: {time.time() - st}')
     print(f'Are there any NaN values left? {np.isnan(imputed).any()}')
 
     st = time.time()
     imputed = impute_wkNNr_parallel(corr, missing_data, batch_size, k_range, c_thr, parallel=False)
-    print(f'Not parallel imputation took: {time.time() - st}')
-    print(f'Are there any Nan values left? {np.isnan(imputed).any()}')
+    print(f'\nNot parallel imputation took: {time.time() - st}')
+    print(f'Are there any Nan values left? {np.isnan(imputed).any()}\n')
 
     inds = np.isnan(missing_data)
     for k_idx, k_neigh in enumerate(k_range):        
@@ -208,15 +208,15 @@ def main():
     missing_data_add1 = pd.concat([shiftM1, pd.DataFrame(missing_data), shiftP1], axis=1)   
     corr = missing_data_add1.corr(method=corr_method).fillna(0).values
     
-    print(f'Shape of missing data matrix with lag(1) lead(1): {missing_data_add1.shape}')
+    print(f'\nShape of missing data matrix with lag(1) lead(1): {missing_data_add1.shape}')
     
     c_start = missing_data.shape[1]
     c_end = 2 * (missing_data.shape[1])
     
     st = time.time()
     imputed = impute_wkNNr_parallel_with_add(corr, missing_data_add1.values, batch_size, k_range, c_thr, c_start, c_end)
-    print(f'Parallel imputation with with lag(1) lead(1) took: {time.time() - st}')
-    print(f'Are there any NaN values left? {np.isnan(imputed[:,:,c_start:c_end]).any()}')
+    print(f'\nParallel imputation with lag(1) lead(1) took: {time.time() - st}')
+    print(f'Are there any NaN values left? {np.isnan(imputed[:,:,c_start:c_end]).any()}\n')
     
     inds = np.isnan(missing_data)
     for k_idx, k_neigh in enumerate(k_range):        
