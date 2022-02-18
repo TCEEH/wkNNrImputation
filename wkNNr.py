@@ -184,7 +184,7 @@ def main():
     # imputation parameters
     corr_method = 'pearson' #'pearson','spearman'
     c_thr = 0
-    corr = np.abs(np.array(pd.DataFrame(missing_data).corr(method=corr_method)))
+    corr = pd.DataFrame(missing_data).corr(method=corr_method).fillna(0).values
     k_range = np.array([20,10])
     batch_size = 200
 
