@@ -23,21 +23,24 @@ The function returns:
 imputed - a 3D matrix. axis 0 = the index of the k parameter in k_range, axis 1 = rows of imputed matrix and axis 2 = columns of imputed matrix. 
 '''
 
+
 def impute_wkNNr_parallel(corr, missing_data, batch_size, k_range, column_idx_to_impute, corr_thr=0, q=2, parallel=True, chunk_size=1, njobs=None):
     imputed = np.repeat(np.asarray(missing_data)[None], k_range.shape[0], axis=0)
+    print(imputed.shape)
     
     args = ((missing_data, corr, i, batch_size, k_range, corr_thr, q) for i in column_idx_to_impute)
     if parallel: 
         with Pool(njobs) as p:
             for rinds, cind, total_values in p.imap_unordered(impute_column, args, chunk_size):
+
                 for k_idx, _ in enumerate(k_range):
+                    print(k_idx, cind, rinds[:10], len(rinds), total_values.shape)
                     imputed[k_idx, rinds, cind] = total_values[:, k_idx]
     else: 
         for rinds, cind, total_values in map(impute_column, args):
                 for k_idx, _ in enumerate(k_range):
                     imputed[k_idx, rinds, cind] = total_values[:, k_idx]
     return imputed
-
 
 
 def return_standardized(mat):
@@ -47,6 +50,7 @@ def return_standardized(mat):
 
 def impute_column(args):
     missing_data, corr, cind, batch_size, k_range, corr_thr, q = args
+
     start_time = time.time()
     logging.info(f'starting {cind}')
     rinds = np.isnan(missing_data[:, cind])
@@ -54,7 +58,7 @@ def impute_column(args):
     # Use threshold of corr:
     correlated_columns = np.abs(corr[:, cind]) > corr_thr
     logging.info(f'{correlated_columns.sum()} correlated columns')
-    cind = correlated_columns[:cind].sum()
+    filtered_cind = correlated_columns[:cind].sum()
     corr = corr[correlated_columns, :][:, correlated_columns]
     missing_data = missing_data[:, correlated_columns]
 
@@ -63,17 +67,16 @@ def impute_column(args):
     missing_rows = missing_data_norm[rinds, :]
     present_rows = missing_data[~rinds, :]
     present_rows_norm = missing_data_norm[~rinds, :]
-    present_rows_corr = present_rows_norm * corr[:, cind]
+    present_rows_corr = present_rows_norm * corr[:, filtered_cind]
     present_rows_not_nan_mask = (~np.isnan(present_rows)).astype(int)
 
     total_values = np.zeros((missing_rows.shape[0], len(k_range)))
     for batch_start in range(0, missing_rows.shape[0], batch_size):
         batch = missing_rows[batch_start:batch_start + batch_size]
 
-        weights = get_weights(batch, cind, corr, present_rows_corr, present_rows_not_nan_mask, q)
+        weights = get_weights(batch, filtered_cind, corr, present_rows_corr, present_rows_not_nan_mask, q)
 
-        get_values_for_weights(total_values, weights, cind, k_range, present_rows, batch_start, batch_size)
-
+        get_values_for_weights(total_values, weights, filtered_cind, k_range, present_rows, batch_start, batch_size)
     logging.info(f'finished {cind} ({(time.time() - start_time)/60} minutes)')
     return rinds, cind, total_values
 
@@ -102,8 +105,6 @@ def get_values_for_weights(total_values, weights, cind, k_range, present_rows, b
 
         total_values[batch_start:batch_start + batch_size, k_idx] = np.dot(present_rows[rows, cind], weights_copy)
 
-
-        
         
         
         
