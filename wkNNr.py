@@ -33,7 +33,6 @@ def impute_wkNNr_parallel(corr, missing_data, batch_size, k_range, column_idx_to
             for rinds, cind, total_values in p.imap_unordered(impute_column, args, chunk_size):
 
                 for k_idx, _ in enumerate(k_range):
-                    print(k_idx, cind, rinds[:10], len(rinds), total_values.shape)
                     imputed[k_idx, rinds, cind] = total_values[:, k_idx]
     else: 
         for rinds, cind, total_values in map(impute_column, args):
