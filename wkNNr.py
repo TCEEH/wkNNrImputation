@@ -26,7 +26,6 @@ imputed - a 3D matrix. axis 0 = the index of the k parameter in k_range, axis 1 
 
 def impute_wkNNr_parallel(corr, missing_data, batch_size, k_range, column_idx_to_impute, corr_thr=0, q=2, parallel=True, chunk_size=1, njobs=None):
     imputed = np.repeat(np.asarray(missing_data)[None], k_range.shape[0], axis=0)
-    print(imputed.shape)
     
     args = ((missing_data, corr, i, batch_size, k_range, corr_thr, q) for i in column_idx_to_impute)
     if parallel: 
